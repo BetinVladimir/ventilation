@@ -1,0 +1,13 @@
+# Local REST entry point; use a domain instead of :80 for production HTTPS.
+:80 {
+    encode zstd gzip
+    handle /api/* {
+        reverse_proxy gateway:8080
+    }
+    handle /healthz {
+        reverse_proxy gateway:8080
+    }
+    handle {
+        respond "Ventilation REST API" 200
+    }
+}

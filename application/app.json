@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Ventilation",
+    "slug": "ventilation",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.beeloy.ventilation"
+    }
+  }
+}

@@ -1,0 +1,72 @@
+name: ventilation
+x-backend: &backend
+  build: ./bakend
+  environment: &env
+    DATABASE_URL: postgres://${POSTGRES_USER:-ventilation}:${POSTGRES_PASSWORD:-local-dev-change-me}@postgres:5432/${POSTGRES_DB:-ventilation}?sslmode=disable
+    REDIS_ADDR: redis:6379
+    MQTT_URL: tcp://emqx:1883
+  restart: unless-stopped
+  depends_on:
+    postgres: {condition: service_healthy}
+    redis: {condition: service_healthy}
+    emqx: {condition: service_healthy}
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ventilation}
+      POSTGRES_USER: ${POSTGRES_USER:-ventilation}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-change-me}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./bakend/migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    command: [redis-server, --appendonly, 'yes']
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  emqx:
+    image: emqx/emqx:5.8.8
+    ports: ['${MQTT_PORT:-1883}:1883', '127.0.0.1:${EMQX_DASHBOARD_PORT:-18083}:18083']
+    volumes: [emqx-data:/opt/emqx/data, emqx-log:/opt/emqx/log]
+    healthcheck:
+      test: [CMD, /opt/emqx/bin/emqx, ctl, status]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+  devices:
+    <<: *backend
+    command: [devices]
+  telemetry:
+    <<: *backend
+    command: [telemetry]
+  gateway:
+    build: ./bakend
+    command: [gateway]
+    restart: unless-stopped
+    depends_on: [devices, telemetry]
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ['${API_PORT:-8080}:80']
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [gateway]
+volumes:
+  caddy-data:
+  caddy-config:
+  postgres-data:
+  redis-data:
+  emqx-data:
+  emqx-log:

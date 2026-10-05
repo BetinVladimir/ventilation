@@ -1,0 +1,7 @@
+.env
+**/node_modules/
+**/.expo/
+**/.pio/
+iots/damper/include/secrets.h
+.DS_Store
+**/dist/
